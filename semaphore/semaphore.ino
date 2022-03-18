@@ -26,6 +26,10 @@ static const int led_pin = 19;
 
 //SemaphoreHandle_t  sema_v;
 //sema_v = xSemaphoreCreateBinary();
+
+static SemaphoreHandle_t bin_sem; 
+
+
 #define potMax 4095 //setting max potentiometer value
 
 #define SignalB 21 //GPIO21
@@ -41,8 +45,8 @@ typedef struct
   unsigned int global_average;
   unsigned int digitalSwitchState;
   unsigned int scilloscopeFrequency;
-    
-}globaltask9Struct;
+
+} globaltask9Struct;
 
 
 
@@ -157,7 +161,7 @@ void seven(void *parameter) {
   while (true) {
     int global_average;
     if (xQueueReceive(GlobalAverageQueue, (void *)&global_average, 0) == pdTRUE) {
-      
+
     }
     //if the average of the analog pot is larger than the half of the max value put LED on otherwise put it off
     if (global_average > (potMax / 2)) {
@@ -182,6 +186,10 @@ void eight(void *parameter) {
 
 void nine(void *parameter) {
   while (true) {
+    semaphoreTake(globaltask9Struct.digitalSwitchState)
+    semaphoreTake(globaltask9Struct.oscilloscopeFrequency)
+    semaphoreTake(globaltask9Struct.global_average)
+    
     int global_average;
     if (xQueueReceive(GlobalAverageQueue, (void *)&global_average, 0) == pdTRUE) {
       //      &global_average=global_average;
@@ -225,6 +233,10 @@ void setup() {
   Serial.println(uxTaskPriorityGet(NULL));
 
   //    xTaskCreatePinnedToCore(
+  GlobalAverageQueue = xQueueCreate(GlobalAverageQueue_queue_len, sizeof(int));
+  //  msg_queue = xQueueCreate(msg_queue_len, sizeof(Message));
+  bin_sem = xSemaphoreCreateBinary();
+
 
   xTaskCreate(one,  "taskone", 1024, NULL, 0, NULL );
   xTaskCreate(two,  "tasktwo", 1024, NULL, 0, NULL );
@@ -237,8 +249,6 @@ void setup() {
   xTaskCreate(nine,  "tasknine", 1024, NULL, 0, NULL );
 
   // Create queues
-  GlobalAverageQueue = xQueueCreate(GlobalAverageQueue_queue_len, sizeof(int));
-  //  msg_queue = xQueueCreate(msg_queue_len, sizeof(Message));
 
 }
 
