@@ -27,7 +27,7 @@ static const int led_pin = 19;
 //SemaphoreHandle_t  sema_v;
 //sema_v = xSemaphoreCreateBinary();
 
-static SemaphoreHandle_t bin_sem; 
+static SemaphoreHandle_t bin_sem;
 
 
 #define potMax 4095 //setting max potentiometer value
@@ -40,14 +40,14 @@ static SemaphoreHandle_t bin_sem;
 #define squareWave 34 //GPIO22
 
 
-typedef struct
+struct taskStorage
 {
-  unsigned int global_average;
-  unsigned int digitalSwitchState;
-  unsigned int scilloscopeFrequency;
+  unsigned int global_average=0;
+  unsigned int digitalSwitchState=0;
+  unsigned int oscilloscopeFrequency=0;
+};
 
-} globaltask9Struct;
-
+taskStorage globaltask9Struct;
 
 
 static int period1 = 16;
@@ -78,6 +78,11 @@ void two(void *parameter) {
     Serial.println("task1");
     //readinging digital switch state into the global array
     digitalSwitchState = digitalRead(pushButton1);
+
+    xSemaphoreTake(bin_sem, portMAX_DELAY);
+    globaltask9Struct.digitalSwitchState = digitalSwitchState;
+    xSemaphoreGive(bin_sem);
+
     vTaskDelay(period2 / portTICK_PERIOD_MS);
   }
 }
@@ -90,6 +95,11 @@ void three(void *parameter) {
     float period = mark1 * 2; //is in microseconds
     float freq = 1e6 / period; //dividing by 1e6 as this is 1micro in second as you need to scale it
     oscilloscopeFrequency = freq;
+
+    xSemaphoreTake(bin_sem, portMAX_DELAY);
+    globaltask9Struct.oscilloscopeFrequency = oscilloscopeFrequency;
+    xSemaphoreGive(bin_sem);
+
     vTaskDelay(period3 / portTICK_PERIOD_MS);
   }
 }
@@ -142,6 +152,14 @@ void five(void *parameter) {
     if (xQueueSend(GlobalAverageQueue, (void *)&global_average, 10) != pdTRUE) {
       Serial.println("ERROR: Could not put item on delay queue.");
     }
+//    struct globaltask9Struct localglobaltask9Struct;
+
+    xSemaphoreTake(bin_sem, portMAX_DELAY);
+    globaltask9Struct.global_average = global_average;
+    xSemaphoreGive(bin_sem);
+
+
+
     vTaskDelay(period5 / portTICK_PERIOD_MS);
   }
 }
@@ -186,24 +204,35 @@ void eight(void *parameter) {
 
 void nine(void *parameter) {
   while (true) {
-    semaphoreTake(globaltask9Struct.digitalSwitchState)
-    semaphoreTake(globaltask9Struct.oscilloscopeFrequency)
-    semaphoreTake(globaltask9Struct.global_average)
-    
-    int global_average;
-    if (xQueueReceive(GlobalAverageQueue, (void *)&global_average, 0) == pdTRUE) {
-      //      &global_average=global_average;
-    }
+
+    //    int localdigitalSwitchState;
+    //    int localoscilloscopeFrequency;
+    //    int localglobal_average;
+     struct taskStorage localglobaltask9Struct;
+
+    xSemaphoreTake(bin_sem, portMAX_DELAY);
+    localglobaltask9Struct = globaltask9Struct;
+    xSemaphoreGive(bin_sem);
+
+
+    //    int global_average;
+    //    if (xQueueReceive(GlobalAverageQueue, (void *)&global_average, 0) == pdTRUE) {
+    //      //      &global_average=global_average;
+    //    }
     //outputting to serial for csv
-    Serial.print(digitalSwitchState);
+    Serial.print(localglobaltask9Struct.digitalSwitchState);
     Serial.print(",");
 
-    Serial.print(oscilloscopeFrequency);
+    Serial.print(localglobaltask9Struct.oscilloscopeFrequency);
     Serial.print(",");
 
-    Serial.print(global_average);
+    Serial.print(localglobaltask9Struct.global_average);
     Serial.println(",");
+
+
+
     vTaskDelay(period9 / portTICK_PERIOD_MS);
+
   }
 }
 
