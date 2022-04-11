@@ -2,11 +2,11 @@
 #include "freertos/task.h"
 
 
+//average queue sent to task 7 LED
+static const uint8_t GlobalAverageQueueLED_queue_len = 8;
+static QueueHandle_t GlobalAverageQueueLED;
 
-static const uint8_t GlobalAverageQueue_queue_len = 8;
-// Globals
-static QueueHandle_t GlobalAverageQueue;
-
+//used to store the pot values for task 5
 static const uint8_t averageElements_queue_len = 5;
 static QueueHandle_t averageElements;
 
@@ -16,7 +16,7 @@ static QueueHandle_t averageElements;
 static const int led_pin = 19;
 
 
-
+//setting up mutex variable
 static SemaphoreHandle_t mut_sem;
 
 
@@ -26,7 +26,7 @@ static SemaphoreHandle_t mut_sem;
 #define pushButton1 23 //GPIO23
 #define analogPot 35 //GPIO35
 #define LEDerrorCode 25 //gpio 25
-#define squareWave 34 //GPIO22
+#define squareWave 34 //GPIO34
 
 
 //creating the critical storage struct
@@ -162,6 +162,7 @@ void five(void *parameter) {
     //for looping over certain amount of values, allows average of 1,2,3 and not average initial 0
     for (int i = 0; i < firstFour; i++) {
 
+      //iteratively taking value from queue from arrayElements, setting returned value to arrayValue then adding to local_average
       if (xQueueReceive(averageElements, (void *)&arrayValue, 0) != pdTRUE) {
         Serial.println("ERROR: Could not pop from average queue");
       }
@@ -180,7 +181,7 @@ void five(void *parameter) {
 
 
     //sending to queue, queue name, local variable name, ticks on how long to wait
-    if (xQueueSend(GlobalAverageQueue, (void *)&global_average, 2) != pdTRUE) {
+    if (xQueueSend(GlobalAverageQueueLED, (void *)&global_average, 2) != pdTRUE) {
       Serial.println("ERROR: Could not put item on delay queue.");//send message if not able to send to queue
     }
     //    struct globaltask9Struct localglobaltask9Struct;
@@ -190,11 +191,14 @@ void five(void *parameter) {
     globaltask9Struct.global_average = global_average; //store global average
     xSemaphoreGive(mut_sem); //errors were given if it wasn't sure that the semaphore wasn't given back
 
+    
     //this is putting the elements back in the queue with the new value
     for (int i = 0; i < firstFour; i++) {
 
+      //setting tempValueArray to a current value that you want to send back to the queue
       tempValueArray = tempArray[i];
-      if (xQueueSend(averageElements, (void *)&tempValueArray, 2) != pdTRUE) {//sending variable back to queue
+      
+      if (xQueueSend(averageElements, (void *)&tempValueArray, 2) != pdTRUE) {
         Serial.println("ERROR: Could not put item back on average queue.");
       }
 
@@ -224,7 +228,7 @@ void seven(void *parameter) {
     int global_average;
     for (int i = 0; i < 8; i++) {//go over 8 values of queue from 24hz to 3hz difference
 
-      if (xQueueReceive(GlobalAverageQueue, (void *)&global_average, 0) == pdTRUE) {//taking the 8 values from the queue
+      if (xQueueReceive(GlobalAverageQueueLED, (void *)&global_average, 0) == pdTRUE) {//taking the 8 values from the queue
         //        Serial.println(i);
         if (global_average > (potMax / 2)) {
           error_code = 1;
@@ -310,7 +314,7 @@ void setup() {
   Serial.println(uxTaskPriorityGet(NULL));
 
   //create both queues, globalaveragequeue is for
-  GlobalAverageQueue = xQueueCreate(GlobalAverageQueue_queue_len, sizeof(int));
+  GlobalAverageQueueLED = xQueueCreate(GlobalAverageQueueLED_queue_len, sizeof(int));
   averageElements = xQueueCreate(averageElements_queue_len, sizeof(int));
 
 
@@ -338,15 +342,5 @@ void loop() {
 
 
 
-  // put your setup code here, to run once:
-  //  for (int i=0; i<3; i++){ //suspend task 2 which is sending out the asterisk every 2
-  //    vTaskSuspend(task_2);
-  //    vTaskDelay(2000 / portTICK_PERIOD_MS);
-  //    vTaskResume(task_2);
-  //    vTaskDelay(2000 / portTICK_PERIOD_MS);
-  //  }
-  //  if (task_1 != NULL){
-  //    vTaskDelete(task_1);//need to make sure to check whether the task exists first before you delete it, might overwrite memory
-  //    task_1=NULL;
-  //  }
+  
 }
